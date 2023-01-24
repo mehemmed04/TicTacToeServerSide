@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -15,15 +16,16 @@ namespace TicTacToeServerSide.Services
         private const int BUFFER_SIZE = 1000000;
         private const int PORT = 27001;
         private static readonly byte[] buffer = new byte[BUFFER_SIZE];
+        private static Dictionary<EndPoint, string> Clients { get; set; } = new Dictionary<EndPoint, string>();
         public static bool IsFirst { get; private set; } = false;
         public static char[,] Points = new char[3, 3] { { '1', '2', '3' }, { '4', '5', '6' }, { '7', '8', '9' } };
 
         public static void Start()
         {
             Console.Title = "Server";
-           
-                SetupServer();
-            
+
+            SetupServer();
+
             Console.ReadLine();
             CloseAllSockets();
         }
@@ -41,12 +43,11 @@ namespace TicTacToeServerSide.Services
         private static void SetupServer()
         {
             Console.WriteLine("Setting up server . . . ");
-            serverSocket.Bind(new IPEndPoint(IPAddress.Parse("10.2.13.79"), PORT));
+            serverSocket.Bind(new IPEndPoint(IPAddress.Parse("10.2.27.29"), PORT));
             serverSocket.Listen(2);
             while (true)
             {
-            serverSocket.BeginAccept(AcceptCallBack, null);
-
+                serverSocket.BeginAccept(AcceptCallBack, null);
             }
         }
 
@@ -63,7 +64,11 @@ namespace TicTacToeServerSide.Services
             }
 
             clientSockets.Add(socket);
-            Console.WriteLine($"{socket.RemoteEndPoint} connected");
+            byte[] bytes = new byte[1024];
+            int bytesReceived = socket.Receive(bytes);
+            string name = Encoding.ASCII.GetString(bytes, 0, bytesReceived);
+            Clients.Add(socket.RemoteEndPoint, name);
+            Console.WriteLine($"{name} connected");
             string t = "";
             if (!IsFirst)
             {
@@ -91,7 +96,10 @@ namespace TicTacToeServerSide.Services
             }
             catch (Exception)
             {
-                Console.WriteLine("Client forcefully disconnected");
+
+                string name = "";
+                Clients.TryGetValue(current.RemoteEndPoint, out name);
+                Console.WriteLine($"{name} forcefully disconnected");
                 current.Close();
                 clientSockets.Remove(current);
                 return;
@@ -134,7 +142,9 @@ namespace TicTacToeServerSide.Services
                 foreach (var item in clientSockets)
                 {
                     item.Send(data);
-                    Console.WriteLine($"Data sent to {item.RemoteEndPoint}");
+                    string name = "";
+                    Clients.TryGetValue(item.RemoteEndPoint, out name);
+                    Console.WriteLine($"Data sent to {name}");
                 }
             }
             else if (text == "exit")
@@ -142,6 +152,8 @@ namespace TicTacToeServerSide.Services
                 current.Shutdown(SocketShutdown.Both);
                 current.Close();
                 clientSockets.Remove(current);
+                string name = "";
+                Clients.TryGetValue(current.RemoteEndPoint, out name);
                 Console.WriteLine($"{current.RemoteEndPoint} disconnected");
                 return;
             }
@@ -159,9 +171,9 @@ namespace TicTacToeServerSide.Services
         private static string ConvertString(char[,] points)
         {
             var sb = new StringBuilder();
-            for (int i = 0; i < points.Length/3; i++)
+            for (int i = 0; i < points.Length / 3; i++)
             {
-                for (int k = 0; k < points.Length/3; k++)
+                for (int k = 0; k < points.Length / 3; k++)
                 {
                     sb.Append(points[i, k]);
                     sb.Append('\t');
