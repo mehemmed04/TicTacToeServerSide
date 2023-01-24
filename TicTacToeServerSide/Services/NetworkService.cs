@@ -66,6 +66,7 @@ namespace TicTacToeServerSide.Services
             clientSockets.Add(socket);
             byte[] bytes = new byte[1024];
             int bytesReceived = socket.Receive(bytes);
+
             string name = Encoding.ASCII.GetString(bytes, 0, bytesReceived);
             Clients.Add(socket.RemoteEndPoint, name);
             Console.WriteLine($"{name} connected");
